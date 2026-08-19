@@ -1,0 +1,13 @@
+{
+  "name": "feather-touch-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Feather Touch -- functional demo (zero external dependencies)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

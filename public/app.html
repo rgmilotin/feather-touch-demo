@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Feather Touch</title>
+<link rel="icon" type="image/svg+xml" href="/brand/1.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="app-shell">
+  <div class="sidebar">
+    <div class="brand">
+      <img src="/brand/1.svg" alt="Feather Touch" />
+    </div>
+    <a class="nav-link" data-route="dashboard">Dashboard</a>
+    <a class="nav-link" data-route="patients">Patients</a>
+    <a class="nav-link" data-route="appointments">Appointments</a>
+    <a class="nav-link" data-route="reports">Reports</a>
+    <div class="spacer"></div>
+    <div class="user-box">
+      <div class="name" id="userName">&nbsp;</div>
+      <div class="clinic" id="userClinic">&nbsp;</div>
+      <button class="btn secondary small mt-1" id="logoutBtn" style="width:100%;">Sign out</button>
+    </div>
+  </div>
+  <div class="main" id="view">
+    <div class="empty-state">Loading&hellip;</div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="/js/calc.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

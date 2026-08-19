@@ -1,0 +1,8 @@
+node_modules/
+
+# Runtime data -- auto-created from seed/seed.json on first run, and persisted
+# via a Railway Volume mounted at data/ in production. Not checked in so a
+# fresh clone always starts from clean seed data.
+data/db.json
+data/photos/
+!data/photos/.gitkeep

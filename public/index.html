@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Feather Touch &mdash; Surgeon Login</title>
+<link rel="icon" type="image/svg+xml" href="/brand/1.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<div class="login-shell">
+  <div class="login-visual">
+    <img class="visual-texture" src="/polytech-images/thorax.png" alt="" />
+    <div class="visual-brand">
+      <img class="visual-logo" src="/brand/2.svg" alt="Feather Touch" />
+      <div class="visual-tagline">Awake &middot; Light &middot; Refined</div>
+    </div>
+    <div class="caption">Morphostructural implant sizing, from consultation to fitting.</div>
+  </div>
+  <div class="login-form-wrap">
+    <form class="login-form" id="loginForm" autocomplete="on">
+      <img class="logo" src="/brand/1.svg" alt="Feather Touch" />
+      <h1>Sign in</h1>
+      <div class="subtitle">MBS Medcom &mdash; surgeon &amp; clinic access</div>
+
+      <div class="login-error" id="loginError"></div>
+
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required autofocus />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required />
+      </div>
+      <button type="submit" class="btn" style="width:100%;">Sign in</button>
+
+      <div class="test-creds">
+        <strong>Demo credentials</strong><br />
+        Doctor (with sample patients): <code>demo</code> / <code>demo1234</code><br />
+        Dr. Raul Chioibas (MBS Medcom): <code>dr.chioibas</code> / <code>feathertouch2026</code><br />
+        Admin (all clinics): <code>admin</code> / <code>admin2026</code>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.getElementById('loginForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var errBox = document.getElementById('loginError');
+    errBox.style.display = 'none';
+    var username = document.getElementById('username').value.trim();
+    var password = document.getElementById('password').value;
+    fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username, password: password })
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (j) { throw new Error(j.error || 'Login failed'); });
+      return r.json();
+    }).then(function () {
+      window.location.href = '/app.html';
+    }).catch(function (err) {
+      errBox.textContent = err.message;
+      errBox.style.display = 'block';
+    });
+  });
+
+  // Already signed in? skip straight to the app.
+  fetch('/api/me').then(function (r) { if (r.ok) window.location.href = '/app.html'; });
+</script>
+</body>
+</html>

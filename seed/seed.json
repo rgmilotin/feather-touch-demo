@@ -1,0 +1,174 @@
+{
+  "users": [
+    {
+      "id": "u_chioibas",
+      "username": "dr.chioibas",
+      "password": "feathertouch2026",
+      "name": "Dr. Raul Chioibas",
+      "role": "doctor",
+      "clinic": "MBS Medcom"
+    },
+    {
+      "id": "u_demo",
+      "username": "demo",
+      "password": "demo1234",
+      "name": "Dr. Demo Account",
+      "role": "doctor",
+      "clinic": "Feather Touch Demo Clinic"
+    },
+    {
+      "id": "u_admin",
+      "username": "admin",
+      "password": "admin2026",
+      "name": "Administrator",
+      "role": "admin",
+      "clinic": "MBS Medcom"
+    }
+  ],
+  "patients": [
+    {
+      "id": "p_maria",
+      "doctorId": "u_demo",
+      "firstName": "Maria",
+      "lastName": "Ionescu",
+      "dob": "1990-04-12",
+      "phone": "+40 722 111 222",
+      "email": "maria.ionescu@example.com",
+      "notes": "Prefers a natural look, active lifestyle (yoga instructor).",
+      "createdAt": "2026-05-04T09:00:00.000Z"
+    },
+    {
+      "id": "p_ana",
+      "doctorId": "u_demo",
+      "firstName": "Ana",
+      "lastName": "Popescu",
+      "dob": "1985-11-02",
+      "phone": "+40 733 222 333",
+      "email": "ana.popescu@example.com",
+      "notes": "Post-partum consultation, interested in fuller upper pole.",
+      "createdAt": "2026-06-01T10:30:00.000Z"
+    },
+    {
+      "id": "p_elena",
+      "doctorId": "u_chioibas",
+      "firstName": "Elena",
+      "lastName": "Radu",
+      "dob": "1993-02-20",
+      "phone": "+40 744 333 444",
+      "email": "elena.radu@example.com",
+      "notes": "Second opinion consultation, revision candidate.",
+      "createdAt": "2026-06-20T14:00:00.000Z"
+    },
+    {
+      "id": "p_demo_biodynamic",
+      "doctorId": "u_demo",
+      "firstName": "Diana",
+      "lastName": "Marinescu",
+      "dob": "1988-08-15",
+      "phone": "+40 755 444 555",
+      "email": "diana.marinescu@example.com",
+      "notes": "Demo dossier with a full pre-op/post-op photo set, used to showcase the photo gallery and before/after PPTX export.",
+      "createdAt": "2026-06-05T09:00:00.000Z"
+    }
+  ],
+  "consultations": [
+    {
+      "id": "c_maria_1",
+      "patientId": "p_maria",
+      "doctorId": "u_demo",
+      "date": "2026-06-10T09:30:00.000Z",
+      "status": "completed",
+      "meas": {
+        "cw": "32", "st": "0.5", "dimd": "4", "stup": "1.0", "upperpole": 0,
+        "bh": "10.5", "pp": "1.0", "cnimf": "5.0", "size": 0, "dev": 0, "shell": 0
+      },
+      "chosenSizer": null,
+      "chosenImplant": null,
+      "notes": "Initial sizing consultation, no implant selected yet."
+    },
+    {
+      "id": "c_ana_1",
+      "patientId": "p_ana",
+      "doctorId": "u_demo",
+      "date": "2026-06-15T11:00:00.000Z",
+      "status": "implant_selected",
+      "meas": {
+        "cw": "34", "st": "0.7", "dimd": "4", "stup": "0.8", "upperpole": 1,
+        "bh": "11.0", "pp": "1.2", "cnimf": "5.5", "size": 1, "dev": 0, "shell": 0
+      },
+      "chosenSizer": 0,
+      "chosenImplant": "primary",
+      "notes": "Patient chose the round/high-projection implant after trying the sizers in clinic."
+    },
+    {
+      "id": "c_elena_1",
+      "patientId": "p_elena",
+      "doctorId": "u_chioibas",
+      "date": "2026-06-25T15:30:00.000Z",
+      "status": "completed",
+      "meas": {
+        "cw": "30", "st": "0.4", "dimd": "3", "stup": "0.6", "upperpole": 0,
+        "bh": "9.8", "pp": "0.9", "cnimf": "4.8", "size": 0, "dev": 0, "shell": 0
+      },
+      "chosenSizer": null,
+      "chosenImplant": null,
+      "notes": "Revision candidate -- reviewing anatomic options."
+    }
+  ],
+  "appointments": [
+    {
+      "id": "a_1",
+      "doctorId": "u_demo",
+      "patientId": "p_maria",
+      "date": "2026-07-14",
+      "time": "10:00",
+      "type": "Sizing consultation",
+      "status": "confirmed",
+      "notes": ""
+    },
+    {
+      "id": "a_2",
+      "doctorId": "u_demo",
+      "patientId": "p_ana",
+      "date": "2026-07-16",
+      "time": "13:30",
+      "type": "Pre-op fitting",
+      "status": "confirmed",
+      "notes": "Bring S6M + S2T sizers."
+    },
+    {
+      "id": "a_3",
+      "doctorId": "u_chioibas",
+      "patientId": "p_elena",
+      "date": "2026-07-20",
+      "time": "09:00",
+      "type": "Second opinion",
+      "status": "pending",
+      "notes": ""
+    },
+    {
+      "id": "a_4",
+      "doctorId": "u_demo",
+      "patientId": null,
+      "date": "2026-07-10",
+      "time": "16:00",
+      "type": "New patient intake",
+      "status": "pending",
+      "notes": "Referral from Dr. Ionescu, name TBC."
+    }
+  ],
+  "photos": [
+    { "id": "photo_bd_1", "patientId": "p_demo_biodynamic", "phase": "before", "source": "external", "filename": "IMG_4590-cut.JPG", "uploadedAt": "2026-06-05T09:05:00.000Z" },
+    { "id": "photo_bd_2", "patientId": "p_demo_biodynamic", "phase": "before", "source": "external", "filename": "IMG_4596-cut.JPG", "uploadedAt": "2026-06-05T09:05:00.000Z" },
+    { "id": "photo_bd_3", "patientId": "p_demo_biodynamic", "phase": "before", "source": "external", "filename": "IMG_4600-cut.JPG", "uploadedAt": "2026-06-05T09:05:00.000Z" },
+    { "id": "photo_bd_4", "patientId": "p_demo_biodynamic", "phase": "before", "source": "external", "filename": "IMG_4593-cut.JPG", "uploadedAt": "2026-06-05T09:05:00.000Z" },
+    { "id": "photo_bd_5", "patientId": "p_demo_biodynamic", "phase": "before", "source": "external", "filename": "IMG_4682-cut.JPG", "uploadedAt": "2026-06-05T09:05:00.000Z" },
+    { "id": "photo_bd_6", "patientId": "p_demo_biodynamic", "phase": "before", "source": "external", "filename": "IMG_4686-cut.JPG", "uploadedAt": "2026-06-05T09:05:00.000Z" },
+    { "id": "photo_bd_7", "patientId": "p_demo_biodynamic", "phase": "after", "source": "external", "filename": "IMG_2851-cut.JPG", "uploadedAt": "2026-07-01T09:05:00.000Z" },
+    { "id": "photo_bd_8", "patientId": "p_demo_biodynamic", "phase": "after", "source": "external", "filename": "IMG_2858-cut.JPG", "uploadedAt": "2026-07-01T09:05:00.000Z" },
+    { "id": "photo_bd_9", "patientId": "p_demo_biodynamic", "phase": "after", "source": "external", "filename": "IMG_2862-cut.JPG", "uploadedAt": "2026-07-01T09:05:00.000Z" },
+    { "id": "photo_bd_10", "patientId": "p_demo_biodynamic", "phase": "after", "source": "external", "filename": "IMG_2854-cut.JPG", "uploadedAt": "2026-07-01T09:05:00.000Z" },
+    { "id": "photo_bd_11", "patientId": "p_demo_biodynamic", "phase": "after", "source": "external", "filename": "IMG_2866-cut.JPG", "uploadedAt": "2026-07-01T09:05:00.000Z" },
+    { "id": "photo_bd_12", "patientId": "p_demo_biodynamic", "phase": "after", "source": "external", "filename": "IMG_2870-cut.JPG", "uploadedAt": "2026-07-01T09:05:00.000Z" }
+  ]
+}
