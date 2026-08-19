@@ -371,6 +371,25 @@ function api(req, res, pathname, query) {
     });
   }
 
+  if ((m = pathname.match(/^\/api\/patients\/([^/]+)$/)) && method === 'DELETE') {
+    var dataDel = db.load();
+    var patientIdx = dataDel.patients.findIndex(function (p) { return p.id === m[1]; });
+    if (patientIdx === -1) return sendError(res, 404, 'Patient not found');
+    var patientDel = dataDel.patients[patientIdx];
+    if (user.role !== 'admin' && patientDel.doctorId !== user.id) return sendError(res, 403, 'Forbidden');
+
+    // Cascade: drop every record that references this patient, plus any uploaded
+    // photo files on disk (external/demo photos live under assets/, untouched).
+    dataDel.patients.splice(patientIdx, 1);
+    dataDel.consultations = dataDel.consultations.filter(function (c) { return c.patientId !== patientDel.id; });
+    dataDel.appointments = dataDel.appointments.filter(function (a) { return a.patientId !== patientDel.id; });
+    dataDel.photos = dataDel.photos.filter(function (ph) { return ph.patientId !== patientDel.id; });
+    db.save(dataDel);
+    try { fs.rmSync(path.join(PHOTOS_DIR, patientDel.id), { recursive: true, force: true }); } catch (e) { /* nothing uploaded */ }
+
+    return sendJson(res, 200, { ok: true });
+  }
+
   // ---- patient photos (pre-op / post-op gallery) ----
   if ((m = pathname.match(/^\/api\/patients\/([^/]+)\/photos$/)) && method === 'GET') {
     var dataPh = db.load();

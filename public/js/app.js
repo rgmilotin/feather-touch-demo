@@ -302,10 +302,36 @@
       }
       html += '</div>';
 
+      html += '<div class="card mt-2" style="display:flex; justify-content:flex-end;">' +
+        '<button class="btn danger" id="deletePatientBtn">Delete patient</button></div>';
+
       setView(html);
       qs('#newConsultBtn').addEventListener('click', function () { navigate('patients/' + p.id + '/consult'); });
       wireConsultationCards(p);
       wirePhotosCard(p);
+      qs('#deletePatientBtn').addEventListener('click', function () { openDeletePatientModal(p); });
+    });
+  }
+
+  function openDeletePatientModal(patient) {
+    var backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = '<div class="modal">' +
+      '<h3>Delete patient?</h3>' +
+      '<p class="muted">Are you sure you want to delete this patient? All of its data will be lost.</p>' +
+      '<div style="display:flex; gap:0.6em; justify-content:flex-end;">' +
+      '<button class="btn secondary" id="dpCancel">Cancel</button>' +
+      '<button class="btn danger" id="dpConfirm">Delete</button>' +
+      '</div></div>';
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) backdrop.remove(); });
+    qs('#dpCancel', backdrop).addEventListener('click', function () { backdrop.remove(); });
+    qs('#dpConfirm', backdrop).addEventListener('click', function () {
+      api('/api/patients/' + patient.id, { method: 'DELETE' }).then(function () {
+        backdrop.remove();
+        toast('Patient deleted');
+        navigate('patients');
+      }).catch(function (e) { toast(e.message || 'Could not delete patient'); });
     });
   }
 
