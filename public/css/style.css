@@ -157,6 +157,22 @@ input[type=range] { width: 100%; accent-color: var(--color-primary); }
 .radio-group input { margin: 0; }
 .radio-group label.active { border-color: var(--color-primary); background: var(--color-primary-tint); }
 
+/* How many catalogue implants an option would leave, and the styling for one that
+   would leave none. Still selectable -- the count plus the empty-state message
+   explains the dead end rather than silently blocking the surgeon. */
+.opt-count {
+  margin-left: 0.15em;
+  font-size: 0.76em;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  border-radius: 999px;
+  padding: 0.05em 0.45em;
+}
+.radio-group label.active .opt-count { background: #fff; color: var(--color-primary-dark); }
+.radio-group label.unavailable { opacity: 0.55; border-style: dashed; }
+.radio-group label.unavailable .opt-count { color: var(--color-danger); }
+
 /* ---------- Login page ---------- */
 .login-shell {
   min-height: 100vh;
@@ -360,38 +376,209 @@ tr.clickable:hover { background: var(--color-surface-alt); }
 .wizard-step.active { background: var(--color-primary); color: #fff; box-shadow: var(--shadow-glow); }
 .wizard-step.done { background: var(--color-primary-tint); color: var(--color-primary-dark); }
 
-.family-card {
+/* ---------------------------------------------------------------------------
+ * Consultation wizard -- Current / Desired measurement columns
+ *
+ * The Measurements, Suggestions and Selection steps all share the same two-column
+ * frame: left is the patient as they are (or their left breast), right is the goal
+ * (or their right breast). Below 1050px the two stack, so the whole wizard stays
+ * usable on a tablet in the consultation room.
+ * ------------------------------------------------------------------------- */
+.meas-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2em;
+  /* stretch, not start: the two panels hold different numbers of fields, and letting
+     them size independently left a ragged gap under the shorter one. */
+  align-items: stretch;
+}
+@media (max-width: 920px) { .meas-columns { grid-template-columns: minmax(0, 1fr); } }
+
+.meas-panel {
+  animation: fadeInUp 0.35s var(--ease-smooth) both;
+  padding: 1.6em 1.5em 1.8em;
+  display: flex;
+  flex-direction: column;
+}
+.meas-panel-title {
+  font-family: var(--font-heading);
+  font-size: 1.25em;
+  color: var(--color-primary-dark);
+  margin: 0 0 0.15em;
+}
+.meas-panel-sub { font-size: 0.84em; margin-bottom: 1.5em; }
+.meas-rule { border: none; border-top: 1px solid var(--color-border); margin: 1.4em 0 1.1em; }
+
+/* Per-side rows: one label, then a Left and a Right input on the same line. The
+   rows carry the extra breathing room that keeps the Current panel from ending well
+   short of the taller Desired panel beside it. */
+.side-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.7em;
+  align-items: center;
+  margin-bottom: 1.15em;
+}
+.meas-panel .side-grid:last-of-type { margin-bottom: 0; }
+.side-grid-label {
+  font-size: 0.86em;
+  font-weight: 600;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+}
+.side-grid input { margin: 0; }
+.side-grid-head { margin-bottom: 0.35em; }
+.side-col-head {
+  font-size: 0.76em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+@media (max-width: 560px) {
+  .side-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .side-grid-label { grid-column: 1 / -1; }
+  .side-grid-head .side-col-head:first-of-type { grid-column: 1; }
+}
+
+/* Live count of catalogue implants left by the current Desired choices. */
+.catalogue-match {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  flex-wrap: wrap;
+  padding: 0.75em 1em;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-tint);
+  border: 1px solid var(--color-border);
+  margin-top: 1em;
+}
+.catalogue-match strong { font-family: var(--font-heading); font-size: 1.35em; color: var(--color-primary-dark); }
+.catalogue-match span { font-size: 0.82em; color: var(--color-text-muted); }
+.catalogue-match.empty { background: #fdf0ed; border-color: var(--color-danger); flex-direction: column; align-items: stretch; }
+.catalogue-match.empty strong { font-size: 0.95em; color: var(--color-danger); }
+.rescue-hint { font-size: 0.8em; color: var(--color-text-muted); }
+.rescue-hint em { font-style: normal; font-weight: 600; color: var(--color-primary-dark); white-space: nowrap; }
+
+/* Per-side implant width sliders, in their own full-width card under the two
+   measurement panels. Capped and centred so the pair reads as one control rather
+   than two stray sliders pinned to the right-hand edge of a wide card. */
+.width-card { padding: 1.5em; }
+.width-control { max-width: 720px; margin: 0 auto; }
+.width-control-title { display: flex; align-items: center; gap: 0.35em; margin-bottom: 0.9em; justify-content: center; }
+.width-row {
+  display: grid;
+  grid-template-columns: 3.4em minmax(0, 1fr) 4.6em 5.2em;
+  gap: 0.8em;
+  align-items: center;
+  margin-bottom: 0.7em;
+}
+.width-row-side { font-size: 0.82em; font-weight: 700; color: var(--color-text-muted); }
+.width-row-value { text-align: right; font-variant-numeric: tabular-nums; }
+.width-row-pill { justify-self: center; }
+.width-row .btn.small { width: 100%; }
+.width-control-note { font-size: 0.8em; margin-top: 0.7em; text-align: center; }
+.width-card .catalogue-match { max-width: 720px; margin-left: auto; margin-right: auto; }
+@media (max-width: 560px) {
+  .width-row { grid-template-columns: 3.4em minmax(0, 1fr) 4.6em; }
+  .width-row > :last-child { grid-column: 2 / -1; justify-self: start; }
+  .width-row .btn.small { width: auto; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Suggestions -- catalogue implant cards
+ * ------------------------------------------------------------------------- */
+.suggest-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6em; flex-wrap: wrap; }
+.suggest-sub { font-size: 0.82em; margin: 0.5em 0 1em; }
+
+.implant-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.8em;
+}
+
+.implant-card {
   border: 2px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 1em;
+  border-radius: var(--radius-md);
+  padding: 0.8em;
   cursor: pointer;
   background: var(--color-surface);
   transition: border-color 0.2s var(--ease-smooth), transform 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth);
   position: relative;
   animation: fadeInUp 0.35s var(--ease-smooth) both;
 }
-.family-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--color-primary); }
-.family-card.recommended { border-color: var(--color-primary); }
-.family-card.selected { border-color: var(--color-accent); background: #f4f8f6; box-shadow: var(--shadow-glow); }
-.family-card img { width: 100%; height: 120px; object-fit: contain; margin-bottom: 0.6em; background: var(--color-surface-alt); border-radius: var(--radius-sm); transition: transform 0.3s var(--ease-smooth); }
-.family-card:hover img { transform: scale(1.04); }
-.family-card .badge { position: absolute; top: 0.7em; right: 0.7em; }
-.family-card h4 { font-size: 0.95em; margin-bottom: 0.2em; }
-.family-card .figures { font-size: 0.8em; color: var(--color-text-muted); }
-.family-card .volume { font-family: var(--font-heading); font-size: 1.3em; color: var(--color-primary-dark); margin: 0.3em 0; }
+.implant-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--color-primary); }
+.implant-card:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.implant-card.recommended { border-color: var(--color-primary); }
+.implant-card.selected { border-color: var(--color-accent); background: #f4f8f6; box-shadow: var(--shadow-glow); }
+.implant-card img {
+  width: 100%; height: 92px; object-fit: contain; margin-bottom: 0.5em;
+  background: var(--color-surface-alt); border-radius: var(--radius-sm);
+  transition: transform 0.3s var(--ease-smooth);
+}
+.implant-card:hover img { transform: scale(1.04); }
+.implant-card .badge { position: absolute; top: 0.6em; right: 0.6em; }
+.implant-card h4 { font-size: 0.92em; margin-bottom: 0.1em; }
+.implant-card .volume { font-family: var(--font-heading); font-size: 1.25em; color: var(--color-primary-dark); margin: 0.25em 0 0.1em; }
+.implant-card .figures { font-size: 0.76em; color: var(--color-text-muted); }
+.implant-ref { font-size: 0.74em; font-weight: 600; color: var(--color-text-muted); letter-spacing: 0.02em; }
+.implant-tags { display: flex; flex-wrap: wrap; gap: 0.3em; margin: 0.5em 0 0.35em; }
+.implant-tags .pill { font-size: 0.68em; padding: 0.15em 0.55em; }
+.implant-delta { font-size: 0.72em; }
+
+/* ---------------------------------------------------------------------------
+ * Selection
+ * ------------------------------------------------------------------------- */
+.selection-head { display: flex; gap: 1em; align-items: center; }
+.selection-img {
+  width: 92px; height: 92px; object-fit: contain; flex: none;
+  background: var(--color-surface-alt); border-radius: var(--radius-md);
+}
+
+.symmetry-bar {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5em 1.4em;
+  padding: 0.85em 1.2em;
+  margin: 1em 0;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
+}
+.symmetry-bar.matched { border-left-color: var(--color-success); }
+.symmetry-label {
+  font-size: 0.72em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--color-text-muted);
+}
+.symmetry-bar span { font-size: 0.88em; }
+
+/* Consultation history summary, one line per breast. */
+.consult-sides { display: flex; flex-direction: column; gap: 0.3em; }
+.consult-side { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5em; font-size: 0.85em; }
+.consult-side-name {
+  font-size: 0.72em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--color-primary-dark); min-width: 3.4em;
+}
 
 .sizer-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.6em;
   padding: 0.8em 1em;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   margin-bottom: 0.6em;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease-smooth);
 }
+.sizer-row:hover { border-color: var(--color-primary); }
 .sizer-row.best { border-color: var(--color-accent); background: #f4f8f6; }
+.sizer-row.chosen { outline: 2px solid var(--color-primary); }
 .sizer-row .rank { font-weight: 700; color: var(--color-text-muted); width: 2em; }
-.sizer-row .pieces { display: flex; gap: 0.4em; }
+.sizer-row .pieces { display: flex; gap: 0.4em; flex-wrap: wrap; }
 .sizer-piece { background: var(--color-surface-alt); border-radius: 999px; padding: 0.2em 0.7em; font-size: 0.85em; font-weight: 600; }
 
 .tissue-bar { height: 8px; border-radius: 999px; background: var(--color-surface-alt); overflow: hidden; margin-top: 0.4em; }
@@ -419,11 +606,13 @@ tr.clickable:hover { background: var(--color-surface-alt); }
 
 /* ---------- Measurement help popovers ---------- */
 .help-trigger {
-  position: relative;
   display: inline-flex;
   vertical-align: middle;
   margin-left: 6px;
+  cursor: help;
+  border-radius: 4px;
 }
+.help-trigger:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .help-icon {
   height: 22px;
   border-radius: 4px;
@@ -434,13 +623,20 @@ tr.clickable:hover { background: var(--color-surface-alt); }
   transform: scale(1.12);
   box-shadow: 0 0 0 3px var(--color-primary-tint);
 }
+/* Positioned with `fixed` and placed by positionHelpPopover() in app.js rather than
+   by CSS alone: anchored to the trigger it would be clipped by the panel it sits in
+   and would always open downwards, pushing the lower fields' popovers off-screen.
+   The JS flips it above/below and clamps it horizontally so it is always fully
+   visible. `top`/`left` start off-screen so an unpositioned popover never flashes
+   in the corner. */
 .help-popover {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 12px);
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  width: min(360px, 86vw);
+  position: fixed;
+  z-index: 60;
+  top: -9999px;
+  left: -9999px;
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -456,47 +652,92 @@ tr.clickable:hover { background: var(--color-surface-alt); }
   pointer-events: none;
   transition: opacity 0.18s var(--ease-smooth), transform 0.18s var(--ease-smooth), visibility 0.18s;
 }
-.help-trigger:hover .help-popover, .help-trigger:focus-within .help-popover, .help-trigger:focus .help-popover {
+.help-popover.placed-below { transform: translateY(4px); }
+.help-popover.placed-above { transform: translateY(-4px); }
+.help-popover.visible {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
 }
+/* Fixed height, not max-height: the popover is measured to decide whether it opens
+   above or below, and an image that has not decoded yet would otherwise measure as
+   zero and the placement would be computed against the wrong height. */
 .help-popover-img {
   width: 100%;
-  max-height: 220px;
+  height: 220px;
   object-fit: contain;
   background: var(--color-surface-alt);
   border-radius: var(--radius-md);
   padding: 0.5em;
+  flex: none;
 }
 .help-popover-body { display: flex; flex-direction: column; gap: 0.5em; }
 .help-popover-title { font-family: var(--font-heading); font-size: 1.05em; color: var(--color-primary-dark); }
 .help-popover-section { font-size: 0.85em; line-height: 1.5; color: var(--color-text); }
 .help-popover-section strong { color: var(--color-text); }
 .help-popover-range { color: var(--color-text-muted); }
-@media (max-width: 700px) {
-  .help-popover { left: 0; transform: translateY(4px); }
-  .help-trigger:hover .help-popover, .help-trigger:focus-within .help-popover, .help-trigger:focus .help-popover { transform: translateY(0); }
-}
 
 /* ---------- Manual implant-width control ---------- */
 .width-control label { display: flex; align-items: center; gap: 0.6em; }
 
 /* ---------- Advisory risk warnings ---------- */
-.warnings-panel { display: flex; flex-direction: column; gap: 0.7em; margin: 1.2em 0; }
+.warnings-panel { display: flex; flex-direction: column; gap: 0.8em; margin: 1.2em 0; }
 .warning-banner {
   border-radius: var(--radius-md);
   padding: 0.9em 1.1em;
   border: 1px solid var(--color-border);
   border-left-width: 5px;
+  display: flex;
+  align-items: center;
+  gap: 1.1em;
 }
+.warning-main { flex: 1 1 auto; min-width: 0; }
 .warning-banner.warning { background: #faf1e2; border-color: var(--color-warning); }
-.warning-banner.danger { background: #f9e9e6; border-color: var(--color-danger); }
-.warning-title { font-weight: 700; margin-bottom: 0.2em; }
-.warning-banner.warning .warning-title { color: var(--color-warning); }
-.warning-banner.danger .warning-title { color: var(--color-danger); }
+
+/* Danger reads distinctly hotter than the advisory tier: a deeper red ground, a
+   heavier rule and a raised exclamation badge, so a complication risk cannot be
+   mistaken for a note at a glance. */
+.warning-banner.danger {
+  background: linear-gradient(180deg, #fdeae6 0%, #fbdfd9 100%);
+  border-color: #b2352a;
+  border-left-width: 7px;
+  box-shadow: 0 2px 10px rgba(178, 53, 42, 0.14);
+}
+.warning-title { font-weight: 700; margin-bottom: 0.2em; display: flex; align-items: center; gap: 0.5em; }
+.warning-banner.warning .warning-title { color: #a06718; }
+.warning-banner.danger .warning-title { color: #9c2b21; font-size: 1.02em; letter-spacing: 0.01em; }
+.warning-mark {
+  flex: none;
+  width: 1.45em;
+  height: 1.45em;
+  border-radius: 50%;
+  background: #b2352a;
+  color: #fff;
+  font-size: 0.88em;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 3px rgba(178, 53, 42, 0.16);
+}
 .warning-msg { font-size: 0.9em; color: var(--color-text); }
+.warning-banner.danger .warning-msg { color: #4a1f1a; }
+
+/* The before/after plate that shows the complication being warned about. */
+.warning-plate {
+  flex: none;
+  width: 220px;
+  max-width: 38%;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  border: 1px solid rgba(156, 43, 33, 0.25);
+}
+@media (max-width: 760px) {
+  .warning-banner { flex-direction: column; align-items: stretch; }
+  .warning-plate { width: 100%; max-width: none; }
+}
 
 /* ---------- Patient photo gallery ---------- */
 .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.8em; }

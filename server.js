@@ -111,10 +111,11 @@ var MIME = {
 };
 
 function serveStatic(req, res, pathname) {
-  // Serve the shared calc engine straight from lib/ so there is exactly one copy of
-  // the sizing logic used by both the server and the browser.
-  if (pathname === '/js/calc.js') {
-    fs.readFile(path.join(__dirname, 'lib', 'calc.js'), function (err, data) {
+  // Serve the shared sizing engine and implant catalogue straight from lib/ so there
+  // is exactly one copy of each used by both the server and the browser.
+  var SHARED_LIB = { '/js/calc.js': 'calc.js', '/js/implants.js': 'implants.js' };
+  if (SHARED_LIB[pathname]) {
+    fs.readFile(path.join(__dirname, 'lib', SHARED_LIB[pathname]), function (err, data) {
       if (err) return sendError(res, 404, 'Not found');
       res.writeHead(200, { 'Content-Type': MIME['.js'] });
       res.end(data);
@@ -210,10 +211,36 @@ function visiblePatients(data, user) {
   return data.patients.filter(function (p) { return p.doctorId === user.id; });
 }
 
+// Recompute a stored consultation against the current catalogue and flatten it into
+// the compact per-side shape the patient dossier / reports render from.
 function enrichConsultation(c) {
   var computed = null;
   try {
-    computed = c.family ? calc.computeForFamily(c.meas || {}, c.family) : calc.computeSizing(c.meas || {});
+    var full = calc.computeConsultation(c.meas || {}, c.selection || {});
+    var sides = {};
+    calc.SIDES.forEach(function (side) {
+      var r = full.sides[side].result;
+      if (!r) return;
+      sides[side] = {
+        ref: r.implant.ref,
+        shapeLabel: r.implant.shapeLabel,
+        rangeLabel: r.implant.rangeLabel,
+        surfaceLabel: r.implant.surfaceLabel,
+        projection: r.implant.projection,
+        w: r.implant.w, h: r.implant.h, p: r.implant.p, v: r.implant.v,
+        sizer: r.topSizer ? r.topSizer.label : null
+      };
+    });
+    var any = sides.left || sides.right;
+    computed = {
+      sides: sides,
+      rangeLabel: any ? any.rangeLabel : null,
+      symmetry: full.symmetry,
+      // Average of the two sides -- what the volume-based reports aggregate on.
+      avgVolume: (sides.left && sides.right)
+        ? Math.round((sides.left.v + sides.right.v) / 2)
+        : (any ? any.v : null)
+    };
   } catch (e) {
     computed = null;
   }
@@ -298,18 +325,16 @@ function api(req, res, pathname, query) {
   if (!user) return sendError(res, 401, 'Not authenticated');
 
   // ---- compute (stateless, live wizard preview) ----
-  // Returns the full 6-family gallery (same as the desktop app showing all 6 cards
-  // at once) plus the fully computed result for either the requested family or the
-  // auto-derived recommended one.
+  // Returns the ranked catalogue suggestions for both breasts plus the resolved
+  // result for whichever implant is selected on each side. The browser runs the same
+  // engine locally (lib/calc.js is shared), so this endpoint exists for API clients
+  // and as the server-side source of truth.
   if (pathname === '/api/compute' && method === 'POST') {
     return readBody(req, function (err, body) {
       if (err) return sendError(res, 400, 'Invalid JSON');
       try {
         var meas = body.meas || body || {};
-        var gallery = calc.computeAllFamilies(meas);
-        var family = body.family || gallery.recommendedFamily;
-        var selected = calc.computeForFamily(meas, family);
-        sendJson(res, 200, { gallery: gallery, selected: selected });
+        sendJson(res, 200, calc.computeConsultation(meas, body.selection || {}));
       } catch (e) {
         sendError(res, 400, 'Could not compute sizing: ' + e.message);
       }
@@ -538,9 +563,9 @@ function api(req, res, pathname, query) {
         date: body.date || new Date().toISOString(),
         status: body.status || 'draft',
         meas: body.meas || {},
-        family: body.family || null,
-        chosenSizer: body.chosenSizer !== undefined ? body.chosenSizer : null,
-        chosenImplant: body.chosenImplant || null,
+        // Chosen catalogue reference per breast: { left: <orderNo>, right: <orderNo> }.
+        selection: body.selection || { left: null, right: null },
+        chosenSizer: body.chosenSizer !== undefined ? body.chosenSizer : { left: null, right: null },
         notes: body.notes || ''
       };
       data.consultations.push(consultation);
@@ -556,7 +581,7 @@ function api(req, res, pathname, query) {
       var c = data.consultations.find(function (c) { return c.id === m[1]; });
       if (!c) return sendError(res, 404, 'Consultation not found');
       if (user.role !== 'admin' && c.doctorId !== user.id) return sendError(res, 403, 'Forbidden');
-      ['meas', 'status', 'chosenSizer', 'chosenImplant', 'notes', 'date', 'family'].forEach(function (k) {
+      ['meas', 'status', 'selection', 'chosenSizer', 'notes', 'date'].forEach(function (k) {
         if (body[k] !== undefined) c[k] = body[k];
       });
       db.save(data);
@@ -635,19 +660,26 @@ function api(req, res, pathname, query) {
     var consultations = data.consultations.filter(function (c) { return doctorIds.indexOf(c.doctorId) !== -1; });
     var appointments = data.appointments.filter(function (a) { return doctorIds.indexOf(a.doctorId) !== -1; });
 
-    var familyCounts = {};
+    // "Top implants" now counts real catalogue shapes rather than the retired 4Two
+    // families, and counts each breast separately since the two sides can differ.
+    var shapeCounts = {};
+    var shapeLabels = {};
     var volumes = [];
     consultations.forEach(function (c) {
-      var computed;
-      try { computed = calc.computeSizing(c.meas || {}); } catch (e) { computed = null; }
-      if (computed) {
-        familyCounts[computed.family] = (familyCounts[computed.family] || 0) + 1;
-        volumes.push(computed.implant.v);
-      }
+      var full;
+      try { full = calc.computeConsultation(c.meas || {}, c.selection || {}); } catch (e) { return; }
+      calc.SIDES.forEach(function (side) {
+        var r = full.sides[side].result;
+        if (!r) return;
+        var key = r.implant.range + '|' + r.implant.shape;
+        shapeCounts[key] = (shapeCounts[key] || 0) + 1;
+        shapeLabels[key] = r.implant.rangeLabel + ' ' + r.implant.shapeLabel;
+        volumes.push(r.implant.v);
+      });
     });
     var avgVolume = volumes.length ? Math.round(volumes.reduce(function (a, b) { return a + b; }, 0) / volumes.length) : 0;
-    var topImplants = Object.keys(familyCounts)
-      .map(function (fam) { return { family: fam, label: calc.FAMILY_LABELS[fam], count: familyCounts[fam] }; })
+    var topImplants = Object.keys(shapeCounts)
+      .map(function (key) { return { family: key, label: shapeLabels[key], count: shapeCounts[key] }; })
       .sort(function (a, b) { return b.count - a.count; });
 
     var perDoctor = doctors.map(function (d) {

@@ -36,90 +36,135 @@
     toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
   }
 
-  function familyImage(family, shell) {
-    return '/polytech-images/' + (Number(shell) === 1 ? 'M' : 'T') + family + '.png';
-  }
-
-  var DEFAULT_MEAS = { cw: '27', st: '0.5', dimd: '3', stup: '0.5', upperpole: 0, bh: '9.5', pp: '1.0', cnimf: '4.5', size: 0, dev: 0, shell: 0, desiredImd: '3', manualWidth: null };
+  var DEFAULT_MEAS = FeatherCalc.DEFAULT_MEAS;
 
   // Each entry drives both the inline field label and the rich hover/focus help
   // popover (see helpIcon()). `hint` stays short -- it is also reused as an inline
   // muted caption on a couple of fields (e.g. the IMD slider). `desc`, `howTo` and
   // `range` are the longer copy shown inside the popover: what the measurement is,
   // how a surgeon actually takes it, and what most patients fall into.
+  //
+  // `img` is the reference diagram. POLYTECH's own renders live under
+  // /polytech-images/; the measurements introduced with the Current/Desired split
+  // have purpose-drawn schematics under /img/ instead.
+  //
+  // `side: true` marks a measurement recorded separately for the left and right
+  // breast (stored as `<key>L` / `<key>R`), so breast asymmetry can be carried
+  // through into two independent implant recommendations.
   var HELP_FIELDS = {
+    // ---------------- Current measurements ----------------
     cw: {
-      label: 'Chest Width', help: 'help_cw.png',
+      label: 'Chest Width', img: '/img/help-cw.svg',
       hint: 'Chest width measurement (cm).',
-      desc: 'The horizontal base width of the chest wall at the level of the inframammary fold -- the anatomical footprint the implant has to sit on.',
+      desc: 'The horizontal base width of the chest wall at the level of the inframammary fold -- the anatomical footprint the implant has to sit on. Together with Current Cleavage it sets the hard upper bound on implant width: no implant wider than the breast base is ever suggested.',
       howTo: 'Patient supine, arms relaxed at the sides. Measure with calipers or a flexible tape from the anterior axillary line to the anterior axillary line (or sternal midline to axillary line, then double it), at the level of the IMF.',
       range: 'Most adult patients fall between 24-30 cm; the demo default (27 cm) sits in the middle of that range.'
     },
-    st: {
-      label: 'Soft Tissue', help: 'help_st.png',
-      hint: 'Soft tissue thickness over the lower pole (cm).',
-      desc: 'How much of the surgeon\'s own soft tissue (skin + subcutaneous fat, not gland) covers the lower pole -- the single biggest driver of rippling/wrinkling risk with any implant.',
-      howTo: 'Pinch test: gently pinch the skin and subcutaneous fat over the lower pole between thumb and forefinger and measure the fold thickness (this captures roughly half the true tissue thickness).',
-      range: 'Typically 0.5-2.5 cm. Under 1 cm is considered thin (higher rippling risk, favours a more cohesive/textured implant); over 2 cm is thick tissue.'
-    },
     dimd: {
-      label: 'Cleavage', help: 'help_dimd.png',
-      hint: 'Inter-mammary distance (cm).',
+      label: 'Current Cleavage', img: '/img/help-dimd.svg',
+      hint: 'Existing inter-mammary distance (cm).',
       desc: 'The starting inter-mammary distance -- the gap between the breasts at the sternum before surgery -- used here as a discrete preset rather than a free measurement.',
       howTo: 'Measure the horizontal distance between the medial borders of the two breast mounds at the sternum, patient upright, and round to the nearest preset (3 / 4 / 5 cm).',
       range: 'Most patients land on 3-5 cm; narrower values suit patients who want closer cleavage, wider values suit a broader chest anatomy.',
       options: ['3', '4', '5']
     },
+    stMed: {
+      label: 'Soft Tissue Medial Pole', img: '/img/help-st-medial.svg', side: true,
+      hint: 'Soft tissue thickness at the medial pole (cm).',
+      desc: 'Skin plus subcutaneous fat (not gland) covering the inner edge of the breast, on the side facing the sternum. Thin medial coverage is what makes an implant edge visible along the cleavage line, so it is measured separately from the lateral reading.',
+      howTo: 'Pinch test: gently pinch the fold between the breast mound and the sternum between thumb and forefinger, patient upright, and measure the fold thickness.',
+      range: 'Typically 0.4-2.0 cm, and usually thinner than the lateral reading on the same breast. Under 0.5 cm is thin coverage.'
+    },
+    stLat: {
+      label: 'Soft Tissue Lateral Pole', img: '/img/help-st-lateral.svg', side: true,
+      hint: 'Soft tissue thickness at the lateral pole (cm).',
+      desc: 'The same pinch-test measurement taken at the outer breast border, towards the axilla. Lateral coverage is generally the thicker of the two and governs how well the outer implant border is camouflaged.',
+      howTo: 'Pinch test at the outer breast border, roughly on the anterior axillary line, patient upright with the arm relaxed at the side.',
+      range: 'Typically 0.5-2.5 cm. The medial and lateral readings are averaged into the effective soft-tissue figure that drives implant width.'
+    },
     stup: {
-      label: 'Soft Tissue Upper Pole', help: 'help_stup.png',
+      label: 'Soft Tissue Upper Pole', img: '/img/help-st-upper.svg', side: true,
       hint: 'Soft tissue thickness over the upper pole (cm).',
-      desc: 'The same pinch-test measurement as Soft Tissue, but taken over the upper pole / décolletage -- generally thinner tissue, so it drives visibility of the implant\'s upper edge.',
+      desc: 'Pinch-test thickness over the upper pole / decolletage -- generally the thinnest tissue on the breast, so it drives visibility of the implant\'s upper edge.',
       howTo: 'Pinch test over the upper pole (just below the clavicle line, above the gland), patient upright, arms relaxed.',
-      range: 'Usually 0.3-1.5 cm -- typically thinner than the lower-pole reading for the same patient.'
-    },
-    upperpole: {
-      label: 'Desired Upper Pole', help: 'help_upperpole.png',
-      hint: 'Natural favours anatomic implants; Full favours round implants.',
-      desc: 'The patient\'s aesthetic goal for the upper breast contour, not a physical measurement -- it steers which implant families (anatomic vs. round) are recommended.',
-      howTo: 'Discussed directly with the patient during consultation, often with photos/sizers as reference, rather than measured with any instrument.',
-      range: 'Most patients today choose a "Natural" sloped upper pole; "Full" is chosen when a fuller, more visibly augmented look is the goal.',
-      options: [{ v: 0, label: 'Natural' }, { v: 1, label: 'Full' }]
-    },
-    bh: {
-      label: 'Desired Breast Height', help: 'help_bh.png',
-      hint: 'Desired final breast height (cm).',
-      desc: 'The target vertical height of the breast mound after surgery, from the upper breast border down to the inframammary fold.',
-      howTo: 'Estimated together with the patient (often against a sizer or reference photos) rather than measured on the pre-op chest directly, since it describes the desired post-op result.',
-      range: 'Commonly requested between 8-11 cm depending on chest size and desired volume.'
+      range: 'Usually 0.3-1.5 cm -- typically thinner than the lower-pole readings for the same patient.'
     },
     pp: {
-      label: 'Parenchyma', help: 'help_pp.png',
+      label: 'Parenchyma', img: '/img/help-pp.svg', side: true,
       hint: 'Existing glandular tissue thickness (cm).',
-      desc: 'The thickness of the patient\'s own existing glandular (breast) tissue at the lower pole -- separate from soft tissue/fat, and a key input for how much implant edge the gland can camouflage.',
+      desc: 'The thickness of the patient\'s own glandular (breast) tissue at the lower pole -- separate from soft tissue/fat. As well as camouflaging the implant edge, the difference between the two sides is what drives the symmetry compensation: the breast holding less of its own tissue is offered proportionally more implant volume.',
       howTo: 'Pinch test isolating the glandular tissue at the lower pole, patient upright; compare against the desired IMD to flag symmastia risk if the pockets would leave too little medial support.',
-      range: 'Typically 1-3 cm. Under 1 cm is thin parenchyma (higher risk of implant edge visibility/palpability).'
+      range: 'Typically 1-3 cm. Under 0.8 cm is thin parenchyma (higher risk of implant edge visibility/palpability).'
     },
     cnimf: {
-      label: 'Lower Pole Skin', help: 'help_cnimf.png',
+      label: 'Lower Pole Skin', img: '/img/help-cnimf.svg', side: true,
       hint: 'Lower pole skin stretch / nipple-to-IMF distance (cm).',
       desc: 'The stretched nipple-to-inframammary-fold distance -- a measure of how much the lower pole skin envelope can already expand, which caps how much projection/height a given patient\'s skin can safely accommodate.',
       howTo: 'With the tissue gently stretched (not resting), measure from the nipple to the inframammary fold along the lower pole, patient upright.',
       range: 'Usually 4-9 cm; higher values indicate more skin laxity (often seen with mild ptosis or after weight change/pregnancy).'
     },
+
+    // ---------------- Desired measurements ----------------
+    bh: {
+      label: 'Desired Breast Height', img: '/img/help-bh.svg',
+      hint: 'Desired final breast height (cm).',
+      desc: 'The target vertical height of the breast mound after surgery, from the upper breast border down to the inframammary fold.',
+      howTo: 'Estimated together with the patient (often against a sizer or reference photos) rather than measured on the pre-op chest directly, since it describes the desired post-op result.',
+      range: 'Commonly requested between 8-11 cm depending on chest size and desired volume.'
+    },
+    upperpole: {
+      label: 'Desired Upper Pole', img: '/img/help-upperpole.svg',
+      hint: 'Natural shows anatomical implants only; Full shows round implants only.',
+      desc: 'The patient\'s aesthetic goal for the upper breast contour. This is a hard filter on the Suggestions step: "Natural" restricts the catalogue to anatomical shapes (Replicon, Opticon, Opticon Plus, Anatomical Oval), "Full" restricts it to round shapes (Meme).',
+      howTo: 'Discussed directly with the patient during consultation, often with photos/sizers as reference, rather than measured with any instrument.',
+      range: 'Most patients today choose a "Natural" sloped upper pole; "Full" is chosen when a fuller, more visibly augmented look is the goal.',
+      options: [{ v: 0, label: 'Natural' }, { v: 1, label: 'Full' }]
+    },
     size: {
-      label: 'Desired Breast Increase', help: 'help_size.png',
-      hint: 'Overall desired size increase.',
-      desc: 'The patient\'s overall preference for how much larger the breasts should look post-op -- a preference input, not a physical measurement.',
+      label: 'Desired Breast Increase', img: '/img/help-projection.svg',
+      hint: 'Filters the catalogue by implant projection class.',
+      desc: 'How much larger the breasts should look post-op. This maps directly onto the catalogue\'s projection classes: Low shows low and moderate projection implants, Medium shows moderate only, and Large shows high and extra high projection implants.',
       howTo: 'Discussed with the patient, often anchored against trial/sizer implants during the fitting so the choice reflects how the result actually looks and feels, not just a number.',
       range: 'Most consultations settle on "Medium" for a proportional result; "Large" is chosen when a more dramatic increase is the explicit goal.',
-      options: [{ v: 0, label: 'Medium' }, { v: 1, label: 'Large' }]
+      options: [{ v: 0, label: 'Low' }, { v: 1, label: 'Medium' }, { v: 2, label: 'Large' }]
     },
     desiredImd: {
       label: 'Desired Intermammary Distance (IMD)',
-      hint: 'Desired postoperative gap between the medial edges of the breasts (cm) -- the surgical-planning term for "distance between breasts". Compared against pre-op Parenchyma to flag symmastia risk if the pockets would be left with too little medial support.',
+      hint: 'Desired postoperative gap between the medial edges of the breasts (cm). Compared against pre-op Parenchyma to flag symmastia risk if the pockets would be left with too little medial support.',
       desc: 'The target postoperative gap between the medial edges of the breasts -- the surgical-planning term for "distance between breasts" once healed.',
       howTo: 'Set jointly with the patient (this field is a planning target, not measured on the pre-op chest); it is compared against the pre-op Parenchyma reading to flag symmastia risk.',
       range: 'Most plans target 1.5-4 cm; below ~1.5 cm the pockets may be left with too little medial support, risking symmastia.'
+    },
+    shell: {
+      label: 'Shell Surface', img: '/img/help-shell.svg',
+      hint: 'The implant-to-tissue interface. Filters the catalogue.',
+      desc: 'How the outside of the implant shell is finished. Microthane is an open-cell polyurethane foam that tissue interlocks into, so the implant resists rotation. Microtextured (MESMO) is POLYTECH\'s standard fine micro-relief. POLYsmoooth is a smooth shell that leaves the implant mobile in its pocket.',
+      howTo: 'A surgical decision rather than a measurement -- driven by pocket plane, rotation risk (critical for anatomical shapes) and the surgeon\'s own protocol.',
+      range: 'Across the 613 catalogue references: 283 Microthane, 278 Microtextured, 52 POLYsmoooth.',
+      options: [
+        { v: 'microthane', label: 'Microthane' },
+        { v: 'microtextured', label: 'Microtextured' },
+        { v: 'polysmoooth', label: 'POLYsmoooth' }
+      ]
+    },
+    range: {
+      label: 'Implant Range', img: '/img/help-range.svg',
+      hint: 'Which POLYTECH gel family to draw suggestions from.',
+      desc: 'The gel filling family. SublimeLine is the standard cohesive silicone range and by far the largest. B-Lite is filled with a microsphere gel that is markedly lighter per ml, for patients where implant weight is a concern. Diagon\\Gel 4Two combines two gels of different firmness in one shell and exists only as an anatomical oval.',
+      howTo: 'Chosen with the patient from weight, feel and shape priorities -- not measured.',
+      range: 'Catalogue coverage: SublimeLine 407 references, B-Lite 194, Diagon\\Gel 4Two 12 (anatomical only, high / extra high projection only).',
+      options: [
+        { v: 'sublimeline', label: 'SublimeLine' },
+        { v: 'diagongel', label: 'DiagonGel' },
+        { v: 'blite', label: 'Lightweight' }
+      ]
+    },
+    manualWidth: {
+      label: 'Implant Width (A)', img: '/img/help-cw.svg', side: true,
+      hint: 'Auto-derived per side from the measurements, or overridden by hand.',
+      desc: 'The base width of the implant for this breast. Left on auto it is derived from chest width, cleavage and that side\'s own soft tissue, so an asymmetric patient gets two different widths. It is always capped at the available breast base width.',
+      howTo: 'Leave on auto unless the fitting session shows a different width sits better; the trial sizers on the next step follow whichever value is active.',
+      range: 'The POLYTECH catalogue spans 80-161 mm of implant base width across all ranges and shapes.'
     }
   };
 
@@ -391,13 +436,23 @@
     var comp = c.computed;
     var statusPill = { draft: 'warning', completed: '', implant_selected: 'success' }[c.status] || '';
     var body = '<div class="card mb-1" data-cid="' + c.id + '" style="cursor:pointer;">' +
-      '<div style="display:flex; justify-content:space-between; align-items:flex-start;">' +
+      '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.6em;">' +
       '<div><strong>' + fmtDate(c.date) + '</strong> &middot; <span class="pill ' + statusPill + '">' + esc((c.status || '').replace('_', ' ')) + '</span></div>' +
-      (comp ? '<div class="pill accent">' + esc(comp.family) + '</div>' : '') +
+      (comp && comp.rangeLabel ? '<div class="pill accent">' + esc(comp.rangeLabel) + '</div>' : '') +
       '</div>';
-    if (comp) {
-      body += '<div class="muted mt-1">' + esc(comp.familyLabel) + ' &middot; A:' + comp.implant.w + ' C:' + comp.implant.h + ' B:' + comp.implant.p.toFixed(1) + ' D:' + comp.implant.d + ' &middot; <strong>' + comp.implant.v + ' ml</strong></div>';
-      body += '<div class="muted">Trial sizer needed: <strong>' + esc(comp.topSizer.label) + '</strong></div>';
+    if (comp && comp.sides) {
+      body += '<div class="consult-sides mt-1">';
+      FeatherCalc.SIDES.forEach(function (side) {
+        var s = comp.sides[side];
+        if (!s) return;
+        body += '<div class="consult-side">' +
+          '<span class="consult-side-name">' + esc(FeatherCalc.SIDE_LABELS[side]) + '</span>' +
+          '<span class="muted">' + esc(s.ref) + ' &middot; ' + esc(s.shapeLabel) + ' &middot; W:' + s.w + ' H:' + s.h +
+          ' P:' + s.p + ' &middot; <strong>' + s.v + ' ml</strong></span>' +
+          (s.sizer ? '<span class="muted">Trial sizer: <strong>' + esc(s.sizer) + '</strong></span>' : '') +
+          '</div>';
+      });
+      body += '</div>';
     }
     if (c.notes) body += '<div class="muted mt-1">' + esc(c.notes) + '</div>';
     body += '</div>';
@@ -423,14 +478,18 @@
     });
     chain.then(function (data) {
       var patient = data.patient;
+      // normaliseMeas() upgrades a dossier saved before the Current/Desired split so
+      // older consultations still open and recompute against the new catalogue.
+      var meas = FeatherCalc.normaliseMeas(existing ? existing.meas : DEFAULT_MEAS);
+      var sizer = (existing && existing.chosenSizer && typeof existing.chosenSizer === 'object')
+        ? existing.chosenSizer : { left: null, right: null };
       state.wizard = {
         patient: patient,
         consultationId: consultationId || null,
         step: existing ? 2 : 1,
-        meas: existing ? shallowCopy(existing.meas) : shallowCopy(DEFAULT_MEAS),
-        family: existing ? (existing.family || null) : null,
-        chosenSizer: existing && existing.chosenSizer !== undefined ? existing.chosenSizer : null,
-        chosenImplant: existing ? existing.chosenImplant : null,
+        meas: meas,
+        selection: (existing && existing.selection) ? shallowCopy(existing.selection) : { left: null, right: null },
+        chosenSizer: sizer,
         notes: existing ? existing.notes : '',
         status: existing ? existing.status : 'draft'
       };
@@ -477,69 +536,201 @@
   // description of what the measurement means, how to actually take it, and the
   // typical range for most patients. Pure CSS show/hide (see .help-trigger/.help-popover
   // in style.css) -- no JS state, so it survives re-renders for free.
-  function helpIcon(key) {
-    var f = HELP_FIELDS[key];
-    if (!f || !f.help) return '';
-    var img = '/polytech-images/' + f.help;
-    return '<span class="help-trigger" tabindex="0">' +
-      '<img class="help-icon" src="' + img + '" alt="" />' +
-      '<span class="help-popover">' +
-      '<img class="help-popover-img" src="' + img + '" alt="How to take the ' + esc(f.label) + ' measurement" />' +
-      '<span class="help-popover-body">' +
+  // ---------------------------- Help popover ----------------------------
+  // A single popover element lives on <body> and is filled on demand, rather than one
+  // nested inside every trigger. Nesting it looked simpler but could not work: the
+  // measurement panels and implant cards carry an entrance `animation` with
+  // fill-mode `both`, which leaves a transform on the element -- and a transformed
+  // ancestor becomes the containing block for `position: fixed` descendants, so a
+  // nested popover was positioned against its panel instead of the viewport and
+  // landed off-screen. Anchoring to <body> also means one DOM subtree instead of
+  // thirteen.
+  var POPOVER_GAP = 10;
+  var POPOVER_MARGIN = 12;
+  var helpPopover = null;
+  var helpHideTimer = null;
+
+  function getHelpPopover() {
+    if (!helpPopover) {
+      helpPopover = document.createElement('div');
+      helpPopover.className = 'help-popover';
+      helpPopover.setAttribute('role', 'tooltip');
+      // Keep it open while the pointer is inside it, so the copy stays readable.
+      helpPopover.addEventListener('mouseenter', function () { clearTimeout(helpHideTimer); });
+      helpPopover.addEventListener('mouseleave', hideHelpPopover);
+      document.body.appendChild(helpPopover);
+    }
+    return helpPopover;
+  }
+
+  function showHelpPopover(trigger) {
+    var f = HELP_FIELDS[trigger.dataset.help];
+    if (!f) return;
+    clearTimeout(helpHideTimer);
+    var pop = getHelpPopover();
+    pop.innerHTML =
+      (f.img ? '<img class="help-popover-img" src="' + esc(f.img) + '" alt="How to take the ' + esc(f.label) + ' measurement" />' : '') +
+      '<div class="help-popover-body">' +
       '<strong class="help-popover-title">' + esc(f.label) + '</strong>' +
       (f.desc ? '<span class="help-popover-section">' + esc(f.desc) + '</span>' : '') +
       (f.howTo ? '<span class="help-popover-section"><strong>How to measure:</strong> ' + esc(f.howTo) + '</span>' : '') +
       (f.range ? '<span class="help-popover-section help-popover-range"><strong>Typical range:</strong> ' + esc(f.range) + '</span>' : '') +
-      '</span></span></span>';
+      '</div>';
+    pop.classList.add('visible');
+    positionHelpPopover(trigger);
+  }
+
+  function hideHelpPopover() {
+    helpHideTimer = setTimeout(function () {
+      if (helpPopover) helpPopover.classList.remove('visible');
+    }, 120);
+  }
+
+  // Opens above the icon when there is room -- which is what the fields low in a
+  // panel need, since opening downwards would run them off the bottom of the window
+  // -- and below otherwise, clamped on both axes so it can never hang off an edge.
+  function positionHelpPopover(trigger) {
+    var pop = helpPopover;
+    if (!pop || !pop.classList.contains('visible')) return;
+    var t = trigger.getBoundingClientRect();
+    var w = pop.offsetWidth;
+    var h = pop.offsetHeight;
+    var vw = document.documentElement.clientWidth;
+    var vh = document.documentElement.clientHeight;
+
+    var roomAbove = t.top - POPOVER_GAP - POPOVER_MARGIN;
+    var roomBelow = vh - t.bottom - POPOVER_GAP - POPOVER_MARGIN;
+    var above = h <= roomAbove || (roomAbove > roomBelow && h > roomBelow);
+
+    var top = above ? t.top - h - POPOVER_GAP : t.bottom + POPOVER_GAP;
+    if (top + h > vh - POPOVER_MARGIN) top = vh - h - POPOVER_MARGIN;
+    if (top < POPOVER_MARGIN) top = POPOVER_MARGIN;
+
+    var left = t.left + t.width / 2 - w / 2;
+    if (left + w > vw - POPOVER_MARGIN) left = vw - w - POPOVER_MARGIN;
+    if (left < POPOVER_MARGIN) left = POPOVER_MARGIN;
+
+    pop.style.top = Math.round(top) + 'px';
+    pop.style.left = Math.round(left) + 'px';
+    pop.classList.toggle('placed-above', above);
+    pop.classList.toggle('placed-below', !above);
+  }
+
+  // Delegated from document so it survives every re-render of the wizard, and bound
+  // in the capture phase because mouseenter/mouseleave/focus do not bubble.
+  var activeHelpTrigger = null;
+  ['mouseenter', 'focusin'].forEach(function (evt) {
+    document.addEventListener(evt, function (e) {
+      if (!e.target || !e.target.closest) return;
+      var trigger = e.target.closest('[data-help]');
+      if (!trigger) return;
+      activeHelpTrigger = trigger;
+      showHelpPopover(trigger);
+    }, true);
+  });
+  ['mouseleave', 'focusout'].forEach(function (evt) {
+    document.addEventListener(evt, function (e) {
+      if (!e.target || !e.target.closest) return;
+      if (e.target.closest('[data-help]')) hideHelpPopover();
+    }, true);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && helpPopover) helpPopover.classList.remove('visible');
+  });
+  // A viewport-anchored popover would otherwise drift away from its icon.
+  ['scroll', 'resize'].forEach(function (evt) {
+    window.addEventListener(evt, function () {
+      if (activeHelpTrigger && document.contains(activeHelpTrigger)) positionHelpPopover(activeHelpTrigger);
+      else if (helpPopover) helpPopover.classList.remove('visible');
+    }, true);
+  });
+
+  function helpIcon(key) {
+    var f = HELP_FIELDS[key];
+    if (!f || !f.img) return '';
+    return '<span class="help-trigger" tabindex="0" data-help="' + esc(key) + '"' +
+      ' role="button" aria-label="About the ' + esc(f.label) + ' measurement">' +
+      '<img class="help-icon" src="' + esc(f.img) + '" alt="" />' +
+      '</span>';
   }
 
   function drawStepMeasurements() {
     var w = state.wizard;
     var m = w.meas;
-    var html = '<div class="card" style="max-width:760px;">';
+    // Two columns: what the patient has now on the left, what they are aiming for on
+    // the right. Everything that describes one breast is captured per side inside the
+    // Current column, so an asymmetric patient carries two sets of figures forward.
+    var html = '<div class="meas-columns">';
+
+    // ---------------- Current ----------------
+    html += '<section class="card meas-panel">';
+    html += '<h3 class="meas-panel-title">Current Measurements of the Patient</h3>';
+    html += '<p class="muted meas-panel-sub">As measured on the patient today. Per-breast readings are recorded separately so any asymmetry is carried into the suggestions.</p>';
 
     html += '<div class="field-row">';
     html += numField('cw', m.cw);
-    html += numField('st', m.st);
-    html += '</div>';
-    html += '<div class="field-row">';
-    html += numField('stup', m.stup);
-    html += numField('bh', m.bh);
-    html += '</div>';
-    html += '<div class="field-row">';
-    html += numField('pp', m.pp);
-    html += numField('cnimf', m.cnimf);
-    html += '</div>';
-
     html += radioField('dimd', m.dimd, HELP_FIELDS.dimd.options.map(function (o) { return { v: o, label: o + ' cm' }; }));
-    html += radioField('upperpole', String(m.upperpole), HELP_FIELDS.upperpole.options.map(function (o) { return { v: String(o.v), label: o.label }; }));
-    html += radioField('size', String(m.size), HELP_FIELDS.size.options.map(function (o) { return { v: String(o.v), label: o.label }; }));
+    html += '</div>';
+
+    html += sideHeaderHtml();
+    html += sideNumField('stMed', m);
+    html += sideNumField('stLat', m);
+    html += sideNumField('stup', m);
+    html += sideNumField('pp', m);
+    html += sideNumField('cnimf', m);
+    html += '</section>';
+
+    // ---------------- Desired ----------------
+    html += '<section class="card meas-panel">';
+    html += '<h3 class="meas-panel-title">Desired Future Breast of the Patient</h3>';
+    html += '<p class="muted meas-panel-sub">The aesthetic goal and implant preferences. These choices filter the POLYTECH catalogue on the Suggestions step.</p>';
+
+    html += numField('bh', m.bh);
+    html += filterRadioField('upperpole', m, HELP_FIELDS.upperpole.options);
+    html += filterRadioField('size', m, HELP_FIELDS.size.options);
     html += imdSliderHtml(m);
+    html += filterRadioField('range', m, HELP_FIELDS.range.options);
+    html += filterRadioField('shell', m, HELP_FIELDS.shell.options);
+    html += '</section>';
 
-    html += '<div class="field"><label>Shell surface</label><div class="radio-group" id="shellGroup">' +
-      '<label class="' + (Number(m.shell) === 0 ? 'active' : '') + '"><input type="radio" name="shell" value="0" ' + (Number(m.shell) === 0 ? 'checked' : '') + '/> Textured (T)</label>' +
-      '<label class="' + (Number(m.shell) === 1 ? 'active' : '') + '"><input type="radio" name="shell" value="1" ' + (Number(m.shell) === 1 ? 'checked' : '') + '/> Micro (M)</label>' +
-      '</div></div>';
+    html += '</div>'; // .meas-columns
 
-    html += '<hr style="border:none; border-top:1px solid var(--color-border); margin:1.4em 0;" />';
+    // Implant width spans the full width below both panels: it is derived from the
+    // Current column but lives in the Desired half of the decision, so it belongs to
+    // neither -- and given the whole row, the two sliders read as a proper pair.
+    html += '<section class="card mt-2 width-card">';
     html += widthControlHtml(m);
-    html += '<div class="muted" style="font-size:0.82em; margin-top:-0.6em; margin-bottom:1.1em;">Leave on auto to derive the width from the measurements above, or drag to manually override it -- exactly like the desktop app\'s Implant Width slider. The recommended implants and trial sizers on the next steps follow whichever value is active.</div>';
+    html += catalogueMatchHtml(m);
+    html += '</section>';
 
-    html += '<div class="field"><label for="notesField">Notes</label><textarea id="notesField" rows="2">' + esc(w.notes) + '</textarea></div>';
+    html += '<div class="card mt-2"><div class="field"><label for="notesField">Notes</label><textarea id="notesField" rows="2">' + esc(w.notes) + '</textarea></div>';
 
     html += '<div style="display:flex; gap:0.6em;"><button class="btn secondary" id="toPatientStep">Back</button><button class="btn" id="toSuggestions">See suggestions</button></div>';
     html += '</div>';
 
     qs('#wizardBody').innerHTML = html;
 
-    qsa('#wizardBody input[type=text], #wizardBody input[type=number]').forEach(function (inp) {
+    // Changing any of these re-filters the catalogue, so the live match counter and
+    // the auto-derived widths underneath have to be redrawn.
+    var FILTER_FIELDS = ['upperpole', 'size', 'range', 'shell'];
+
+    qsa('#wizardBody input[type=number]').forEach(function (inp) {
       inp.addEventListener('input', function () { m[inp.dataset.field] = inp.value; });
+      // Width is derived from these, so refresh the panel once the field is left.
+      inp.addEventListener('change', function () { drawStepMeasurements(); });
     });
     qsa('#wizardBody input[type=radio]').forEach(function (inp) {
       inp.addEventListener('change', function () {
         var name = inp.name;
-        m[name] = Number(inp.value);
+        // Radio values are a mix of numeric codes (upperpole, size, dimd) and string
+        // keys (range, shell) -- only coerce the ones that really are numbers.
+        var raw = inp.value;
+        m[name] = (raw !== '' && !isNaN(Number(raw))) ? Number(raw) : raw;
         qsa('input[name="' + name + '"]').forEach(function (r) { r.closest('label').classList.toggle('active', r.checked); });
+        if (FILTER_FIELDS.indexOf(name) !== -1 || name === 'dimd') {
+          w.notes = qs('#notesField').value;
+          drawStepMeasurements();
+        }
       });
     });
     wireImdSlider(m, function () {});
@@ -568,6 +759,108 @@
       }).join('') + '</div></div>';
   }
 
+  // Same as radioField, but each option also reports how many catalogue implants it
+  // would leave given the *other* current choices -- and an option that would leave
+  // none is marked unavailable. Several real combinations are genuinely empty (e.g.
+  // Diagon\Gel 4Two exists only as an anatomical, high / extra high, Microthane
+  // implant), so without this the surgeon can only discover a dead end by hitting it.
+  function filterRadioField(key, m, options) {
+    var f = HELP_FIELDS[key];
+    var value = m[key];
+    return '<div class="field"><label>' + esc(f.label) + helpIcon(key) + '</label>' +
+      '<div class="radio-group">' + options.map(function (o) {
+        var active = String(o.v) === String(value);
+        var probe = {};
+        for (var k in m) if (m.hasOwnProperty(k)) probe[k] = m[k];
+        probe[key] = (String(o.v) !== '' && !isNaN(Number(o.v))) ? Number(o.v) : o.v;
+        var count = FeatherCalc.filterCatalogue(probe).length;
+        return '<label class="' + (active ? 'active ' : '') + (count ? '' : 'unavailable') + '"' +
+          (count ? '' : ' title="No catalogue implants with the other choices as they are"') + '>' +
+          '<input type="radio" name="' + key + '" value="' + esc(o.v) + '" ' + (active ? 'checked' : '') + '/> ' +
+          esc(o.label) + '<span class="opt-count">' + count + '</span></label>';
+      }).join('') + '</div></div>';
+  }
+
+  // ---------------------------- Per-side measurement rows ----------------------------
+  // One label on the left, then a Left and a Right input, so the two breasts read as
+  // a single comparable row rather than two unrelated fields.
+  function sideHeaderHtml() {
+    return '<div class="side-grid side-grid-head">' +
+      '<span class="side-grid-label"></span>' +
+      '<span class="side-col-head">Left</span>' +
+      '<span class="side-col-head">Right</span>' +
+      '</div>';
+  }
+
+  function sideNumField(key, m) {
+    var f = HELP_FIELDS[key];
+    return '<div class="side-grid">' +
+      '<span class="side-grid-label">' + esc(f.label) + helpIcon(key) + '</span>' +
+      FeatherCalc.SIDES.map(function (side) {
+        var field = FeatherCalc.sideKey(key, side);
+        return '<input type="number" step="0.1" data-field="' + field + '" value="' + esc(m[field]) + '" aria-label="' + esc(f.label + ' ' + side) + '" />';
+      }).join('') +
+      '</div>';
+  }
+
+  // Live count of how many catalogue implants the current Desired choices leave to
+  // pick from -- so an over-restrictive combination is obvious before moving on.
+  function catalogueMatchHtml(m) {
+    var pool = FeatherCalc.filterCatalogue(m);
+    var f = FeatherCalc.activeFilters(m);
+    var shapeWord = f.shapeClass === 'round' ? 'round' : 'anatomical';
+    var projWords = f.projections.map(function (p) {
+      return FeatherCalc.Implants.PROJECTION_LABELS[p].replace(' projection', '');
+    }).join(' / ');
+    if (!pool.length) {
+      return '<div class="catalogue-match empty">' +
+        '<strong>No catalogue implants match these choices.</strong>' +
+        '<span>' + esc(FeatherCalc.Implants.RANGE_LABELS[f.range]) + ' has no ' + esc(shapeWord) +
+        ' implants with ' + esc(projWords.toLowerCase()) + ' projection in ' +
+        esc(FeatherCalc.Implants.SURFACE_LABELS[f.surface]) + '.</span>' +
+        rescueHintHtml(m) +
+        '</div>';
+    }
+    return '<div class="catalogue-match">' +
+      '<strong>' + pool.length + '</strong>' +
+      '<span>catalogue implants match &mdash; ' + esc(FeatherCalc.Implants.RANGE_LABELS[f.range]) + ', ' +
+      esc(shapeWord) + ', ' + esc(projWords.toLowerCase()) + ' projection, ' +
+      esc(FeatherCalc.Implants.SURFACE_LABELS[f.surface]) + '.</span>' +
+      '</div>';
+  }
+
+  // When a combination is empty, every individual option also reads zero, which tells
+  // the surgeon nothing about how to get out. Keep the chosen range fixed (it is the
+  // most deliberate choice) and name the combinations that range does support.
+  function rescueHintHtml(m) {
+    var wanted = m.range;
+    var combos = {};
+    FeatherCalc.Implants.CATALOGUE.forEach(function (i) {
+      if (i.range !== wanted) return;
+      var upperpole = i.shapeClass === 'round' ? 1 : 0;
+      var sizes = [];
+      [0, 1, 2].forEach(function (sz) {
+        if (FeatherCalc.SIZE_PROJECTIONS[sz].indexOf(i.projection) !== -1) sizes.push(FeatherCalc.SIZE_LABELS[sz]);
+      });
+      sizes.forEach(function (sizeLabel) {
+        var key = upperpole + '|' + sizeLabel + '|' + i.surface;
+        combos[key] = {
+          upperPole: upperpole === 1 ? 'Full' : 'Natural',
+          size: sizeLabel,
+          surface: FeatherCalc.Implants.SURFACE_LABELS[i.surface]
+        };
+      });
+    });
+    var list = Object.keys(combos).map(function (k) { return combos[k]; });
+    if (!list.length) return '';
+    return '<span class="rescue-hint">' + esc(FeatherCalc.Implants.RANGE_LABELS[wanted]) +
+      ' is available as: ' +
+      list.slice(0, 6).map(function (c) {
+        return '<em>' + esc(c.upperPole + ' + ' + c.size + ' + ' + c.surface) + '</em>';
+      }).join(', ') +
+      (list.length > 6 ? ' and ' + (list.length - 6) + ' more' : '') + '.</span>';
+  }
+
   // ---------------------------- Desired Intermammary Distance ----------------------------
   function imdSliderHtml(m) {
     var f = HELP_FIELDS.desiredImd;
@@ -593,135 +886,278 @@
   // Mirrors the desktop app's "Implant Width" slider (96-136mm, SetImplantWidth): left
   // untouched, the width is auto-derived from chest measurements as before; moving the
   // slider overrides it and every recommended implant/sizer downstream recomputes live.
+  // One slider per breast: left untouched each side derives its own width from that
+  // side's measurements (so an asymmetric patient gets two different widths), and
+  // either can be overridden by hand independently.
   function widthControlHtml(m) {
-    var auto = FeatherCalc.updateWidth(m);
-    var current = FeatherCalc.resolveWidth(m);
-    var isManual = m.manualWidth !== null && m.manualWidth !== undefined && m.manualWidth !== '';
-    return '<div class="field width-control">' +
-      '<label>Implant Width (A) ' + (isManual ?
-        '<span class="pill warning">Manual override</span>' :
-        '<span class="pill accent">Auto, from measurements</span>') + '</label>' +
-      '<div style="display:flex; align-items:center; gap:0.8em; flex-wrap:wrap;">' +
-      '<input type="range" id="widthSlider" min="96" max="136" step="4" value="' + current + '" style="flex:1 1 200px;" />' +
-      '<strong style="min-width:4.5em; text-align:right;">' + current + ' mm</strong>' +
-      (isManual ? '<button type="button" class="btn secondary small" id="widthReset">Reset to auto (' + auto + 'mm)</button>' : '') +
-      '</div></div>';
+    var cap = Math.round(FeatherCalc.breastBaseWidth(m));
+    var html = '<div class="width-control">' +
+      '<label class="width-control-title">' + esc(HELP_FIELDS.manualWidth.label) + helpIcon('manualWidth') + '</label>';
+
+    FeatherCalc.SIDES.forEach(function (side) {
+      var auto = FeatherCalc.autoWidth(m, side);
+      var current = FeatherCalc.resolveWidth(m, side);
+      var isManual = FeatherCalc.isManualWidth(m, side);
+      html += '<div class="width-row" data-side="' + side + '">' +
+        '<span class="width-row-side">' + esc(FeatherCalc.SIDE_LABELS[side]) + '</span>' +
+        '<input type="range" class="width-slider" data-side="' + side + '" min="' + FeatherCalc.Implants.WIDTH_MIN +
+        '" max="' + FeatherCalc.Implants.WIDTH_MAX + '" step="1" value="' + current + '" aria-label="Implant width ' + side + '" />' +
+        '<strong class="width-row-value">' + current + ' mm</strong>' +
+        (isManual
+          ? '<button type="button" class="btn secondary small width-reset" data-side="' + side + '">Auto (' + auto + ')</button>'
+          : '<span class="pill accent width-row-pill">Auto</span>') +
+        '</div>';
+    });
+
+    html += '<div class="muted width-control-note">Capped at the available breast base width (' + cap +
+      ' mm), derived from chest width minus cleavage. Suggestions and trial sizers follow whichever value is active per side.</div>';
+    return html + '</div>';
   }
 
   // `onCommit` fires once the slider is released (the 'change' event) rather than on
   // every 'input' tick, which would otherwise force a full step redraw mid-drag and
   // make the slider thumb lose mouse capture. The mm readout still updates live.
   function wireWidthControl(m, onCommit) {
-    var slider = qs('#widthSlider');
-    if (slider) {
-      var label = slider.parentNode.querySelector('strong');
+    qsa('.width-slider').forEach(function (slider) {
+      var side = slider.dataset.side;
+      var label = slider.parentNode.querySelector('.width-row-value');
       slider.addEventListener('input', function () {
         if (label) label.textContent = slider.value + ' mm';
       });
       slider.addEventListener('change', function () {
-        m.manualWidth = Number(slider.value);
+        m[FeatherCalc.sideKey('manualWidth', side)] = Number(slider.value);
         onCommit();
       });
-    }
-    var resetBtn = qs('#widthReset');
-    if (resetBtn) {
-      resetBtn.addEventListener('click', function () {
-        m.manualWidth = null;
+    });
+    qsa('.width-reset').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        m[FeatherCalc.sideKey('manualWidth', btn.dataset.side)] = null;
         onCommit();
       });
-    }
+    });
   }
 
   // ---------------------------- Advisory risk warnings ----------------------------
+  // A danger-level warning that names a `risk` carries a before/after plate showing
+  // the outcome it is warning about, so the complication can be shown to the patient
+  // rather than only described. Text-only warnings render exactly as before.
+  var RISK_PLATES = {
+    symmastia: { img: '/img/risk-symmastia.svg', alt: 'Normal medial pocket versus symmastia, where the two pockets meet across the midline' },
+    'oversized-width': { img: '/img/risk-oversized-width.svg', alt: 'Implant matched to the breast base versus an implant overhanging the chest wall' },
+    rippling: { img: '/img/risk-rippling.svg', alt: 'Adequate soft tissue coverage versus visible rippling through thin coverage' }
+  };
+
   function warningsHtml(warnings) {
     if (!warnings || !warnings.length) return '';
     return '<div class="warnings-panel">' + warnings.map(function (w) {
-      return '<div class="warning-banner ' + esc(w.severity) + '">' +
-        '<div class="warning-title">' + esc(w.title) + '</div>' +
+      var plate = w.severity === 'danger' ? RISK_PLATES[w.risk] : null;
+      return '<div class="warning-banner ' + esc(w.severity) + (plate ? ' has-plate' : '') + '">' +
+        '<div class="warning-main">' +
+        '<div class="warning-title">' +
+        (w.severity === 'danger' ? '<span class="warning-mark" aria-hidden="true">!</span>' : '') +
+        esc(w.title) + '</div>' +
         '<div class="warning-msg">' + esc(w.message) + '</div>' +
+        '</div>' +
+        (plate ? '<img class="warning-plate" src="' + esc(plate.img) + '" alt="' + esc(plate.alt) + '" loading="lazy" />' : '') +
         '</div>';
     }).join('') + '</div>';
   }
 
+  // Every warning for the current selection: both sides plus the two-sided ones.
+  function allWarnings(w, leftImplant, rightImplant) {
+    var out = FeatherCalc.evaluateSymmetryWarnings(w.meas, leftImplant, rightImplant);
+    FeatherCalc.SIDES.forEach(function (side) {
+      var implant = side === 'left' ? leftImplant : rightImplant;
+      if (implant) out = out.concat(FeatherCalc.evaluateWarnings(w.meas, side, implant));
+    });
+    // Danger first: the plate-carrying complications should lead.
+    return out.sort(function (a, b) {
+      return (a.severity === 'danger' ? 0 : 1) - (b.severity === 'danger' ? 0 : 1);
+    });
+  }
+
+  // A single catalogue implant, as a pickable card.
+  function implantCardHtml(entry, side, isSelected, isTop) {
+    var i = entry.implant;
+    return '<div class="implant-card' + (isSelected ? ' selected' : '') + (isTop ? ' recommended' : '') + '"' +
+      ' data-side="' + side + '" data-ref="' + esc(i.ref) + '" tabindex="0" role="button" aria-pressed="' + (isSelected ? 'true' : 'false') + '">' +
+      (isTop ? '<span class="badge pill accent">Best match</span>' : '') +
+      '<img src="' + esc(FeatherCalc.implantImage(i)) + '" alt="' + esc(i.shapeLabel + ' ' + i.projectionLabel) + '" />' +
+      '<div class="implant-card-body">' +
+      '<h4>' + esc(i.shapeLabel) + '</h4>' +
+      '<div class="implant-ref">' + esc(i.ref) + '</div>' +
+      '<div class="volume">' + i.v + ' ml</div>' +
+      '<div class="figures">W:' + i.w + ' &middot; H:' + i.h + ' &middot; P:' + i.p + ' mm</div>' +
+      '<div class="implant-tags">' +
+      '<span class="pill">' + esc(i.projectionLabel.replace(' projection', '')) + '</span>' +
+      '<span class="pill">' + esc(i.rangeLabel) + '</span>' +
+      '</div>' +
+      '<div class="implant-delta muted">' +
+      (entry.widthDiff === 0 ? 'exact width match' : entry.widthDiff + ' mm from target width') +
+      '</div>' +
+      '</div></div>';
+  }
+
+  function sideSuggestionsHtml(w, side) {
+    var s = FeatherCalc.suggestImplants(w.meas, side);
+    var selectedRef = w.selection[side];
+
+    var html = '<section class="card suggest-panel">';
+    html += '<div class="suggest-head">' +
+      '<h3 class="meas-panel-title">' + esc(FeatherCalc.SIDE_LABELS[side]) + ' breast</h3>' +
+      '<span class="pill accent">' + s.targetWidth + ' mm target</span>' +
+      '</div>';
+
+    if (s.empty) {
+      html += '<div class="empty-state">' + (s.emptyReason === 'width'
+        ? 'Every implant matching the desired choices is wider than this side\'s ' + s.maxWidth +
+          ' mm breast base (narrowest available is ' + s.narrowestAvailable + ' mm). Re-check chest width and cleavage, or choose a different range.'
+        : 'No catalogue implant matches the desired choices. Adjust them on the previous step.') +
+        '</div></section>';
+      return html;
+    }
+
+    html += '<p class="muted suggest-sub">' +
+      (s.manual ? 'Manual width override' : 'Width auto-derived from this side (' + s.autoWidth + ' mm)') +
+      ', capped at the ' + s.maxWidth + ' mm breast base. Target volume <strong>' + s.targetVolume + ' ml</strong>' +
+      (s.compensation !== 0
+        ? ' (' + (s.compensation > 0 ? '+' : '') + s.compensation + ' ml symmetry compensation)'
+        : '') +
+      '. ' + s.totalMatches + ' implants match.</p>';
+
+    html += '<div class="implant-grid">';
+    s.results.forEach(function (entry, idx) {
+      html += implantCardHtml(entry, side, entry.implant.ref === selectedRef, idx === 0);
+    });
+    html += '</div></section>';
+    return html;
+  }
+
   function drawStepSuggestions() {
     var w = state.wizard;
-    var gallery = FeatherCalc.computeAllFamilies(w.meas);
-    if (!w.family) w.family = gallery.recommendedFamily;
+    ensureSelection(w);
 
-    var html = '<div class="card" style="max-width:760px;">' + widthControlHtml(w.meas) + '</div>';
-    html += '<div class="mb-1 mt-1 muted">Derived implant width: <strong>' + gallery.width + ' mm</strong>. All six families shown below share this width -- pick the recommended card or compare another family.</div>';
-    html += '<div class="grid cols-3">';
-    Object.keys(gallery.families).forEach(function (fam) {
-      var implant = gallery.families[fam];
-      var recommended = fam === gallery.recommendedFamily;
-      var selected = fam === w.family;
-      html += '<div class="family-card ' + (recommended ? 'recommended' : '') + ' ' + (selected ? 'selected' : '') + '" data-fam="' + fam + '">' +
-        (recommended ? '<span class="badge pill accent">Recommended</span>' : '') +
-        '<img src="' + familyImage(fam, w.meas.shell) + '" alt="' + fam + '" />' +
-        '<h4>' + esc(FeatherCalc.FAMILY_LABELS[fam]) + '</h4>' +
-        '<div class="volume">' + implant.v + ' ml</div>' +
-        '<div class="figures">A:' + implant.w + ' &middot; C:' + implant.h + ' &middot; B:' + implant.p.toFixed(1) + ' &middot; D:' + implant.d + '</div>' +
-        '</div>';
-    });
+    var html = '<div class="card">' + widthControlHtml(w.meas) + '</div>';
+
+    var f = FeatherCalc.activeFilters(w.meas);
+    html += '<div class="mt-1 mb-1 muted">Showing <strong>' +
+      esc(f.shapeClass === 'round' ? 'round' : 'anatomical') + '</strong> implants from <strong>' +
+      esc(FeatherCalc.Implants.RANGE_LABELS[f.range]) + '</strong> in <strong>' +
+      esc(FeatherCalc.Implants.SURFACE_LABELS[f.surface]) + '</strong>. Each side is ranked against its own ' +
+      'measurements, so an asymmetric patient gets two different recommendations.</div>';
+
+    var leftImplant = FeatherCalc.findImplant(w.selection.left);
+    var rightImplant = FeatherCalc.findImplant(w.selection.right);
+    html += warningsHtml(allWarnings(w, leftImplant, rightImplant));
+
+    html += '<div class="meas-columns">';
+    FeatherCalc.SIDES.forEach(function (side) { html += sideSuggestionsHtml(w, side); });
     html += '</div>';
-    html += warningsHtml(FeatherCalc.evaluateWarnings(w.meas, { implant: gallery.families[w.family], width: gallery.width }));
-    html += '<div class="mt-2" style="display:flex; gap:0.6em;"><button class="btn secondary" id="toMeasStep">Back</button><button class="btn" id="toSelection">Continue with ' + esc(w.family) + '</button></div>';
+
+    html += '<div class="mt-2" style="display:flex; gap:0.6em;">' +
+      '<button class="btn secondary" id="toMeasStep">Back</button>' +
+      '<button class="btn" id="toSelection">Continue to selection</button></div>';
 
     qs('#wizardBody').innerHTML = html;
-    qsa('.family-card').forEach(function (card) {
-      card.addEventListener('click', function () {
-        w.family = card.dataset.fam;
-        drawStepSuggestions();
+
+    function pick(card) {
+      w.selection[card.dataset.side] = card.dataset.ref;
+      drawStepSuggestions();
+    }
+    qsa('.implant-card').forEach(function (card) {
+      card.addEventListener('click', function () { pick(card); });
+      card.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(card); }
       });
     });
-    wireWidthControl(w.meas, function () { drawStepSuggestions(); });
+    wireWidthControl(w.meas, function () { w.selection = { left: null, right: null }; drawStepSuggestions(); });
     qs('#toMeasStep').addEventListener('click', function () { w.step = 2; drawWizard(); });
     qs('#toSelection').addEventListener('click', function () { w.step = 4; drawWizard(); });
   }
 
-  function drawStepSelection() {
-    var w = state.wizard;
-    var result = FeatherCalc.computeForFamily(w.meas, w.family);
-    w._lastResult = result;
+  // Default each side to its own best match, and drop a stored reference that the
+  // current filters no longer allow (e.g. after switching range on the previous step).
+  function ensureSelection(w) {
+    if (!w.selection) w.selection = { left: null, right: null };
+    FeatherCalc.SIDES.forEach(function (side) {
+      var s = FeatherCalc.suggestImplants(w.meas, side);
+      var stillValid = w.selection[side] && s.results.some(function (r) { return r.implant.ref === w.selection[side]; });
+      if (!stillValid) w.selection[side] = s.results.length ? s.results[0].implant.ref : null;
+    });
+  }
 
-    var html = '<div class="card" style="max-width:760px;">' + widthControlHtml(w.meas) + '</div>';
-    html += warningsHtml(FeatherCalc.evaluateWarnings(w.meas, result));
-    html += '<div class="grid cols-2">';
-
-    html += '<div class="card">';
-    html += '<div style="display:flex; gap:1em; align-items:center;">';
-    html += '<img src="' + familyImage(w.family, w.meas.shell) + '" style="width:110px;height:110px;object-fit:contain;background:var(--color-surface-alt);border-radius:12px;" />';
-    html += '<div><h3 style="margin-bottom:0.1em;">' + esc(result.familyLabel) + '</h3><div class="muted">' + esc(result.implant.family_name) + '</div></div>';
+  function sideSelectionHtml(w, side, result) {
+    if (!result) {
+      return '<section class="card"><h3 class="meas-panel-title">' + esc(FeatherCalc.SIDE_LABELS[side]) +
+        ' breast</h3><div class="empty-state">No implant selected for this side.</div></section>';
+    }
+    var i = result.implant;
+    var html = '<section class="card">';
+    html += '<div class="selection-head">';
+    html += '<img src="' + esc(result.image) + '" alt="' + esc(i.shapeLabel) + '" class="selection-img" />';
+    html += '<div><h3 class="meas-panel-title">' + esc(FeatherCalc.SIDE_LABELS[side]) + ' breast</h3>' +
+      '<div class="muted">' + esc(i.rangeLabel) + ' &middot; ' + esc(i.shapeLabel) + '</div>' +
+      '<div class="implant-ref">' + esc(i.ref) + '</div></div>';
     html += '</div>';
+
     html += '<table class="mt-1"><tbody>' +
-      row('Width (A)', result.implant.w + ' mm') +
-      row('Height (C)', result.implant.h + ' mm') +
-      row('Projection (B)', result.implant.p.toFixed(1) + ' mm') +
-      row('D:ILPC', result.implant.d) +
-      row('Volume', '<strong>' + result.implant.v + ' ml</strong>') +
+      row('Order reference', '<strong>' + esc(i.ref) + '</strong>') +
+      row('Shape', esc(i.shapeLabel) + ' (' + esc(i.shapeClass) + ')') +
+      row('Projection class', esc(i.projectionLabel)) +
+      row('Shell surface', esc(i.surfaceLabel)) +
+      row('Width (A)', i.w + ' mm') +
+      row('Height (C)', i.h + ' mm') +
+      row('Projection (B)', i.p + ' mm') +
+      row('Lower ventral curve', i.curve + ' mm') +
+      row('Volume', '<strong>' + i.v + ' ml</strong>') +
       row('Vertical IMF Pos', result.vpos) +
       row('Required Skin', result.requiredSkin.lower + ' &ndash; ~' + result.requiredSkin.upper + ' cm (upper bound estimated)') +
       '</tbody></table>';
-    if (result.implant2) {
-      html += '<div class="muted mt-1">One size down (' + result.implant2.w + 'mm): ' + result.implant2.v + ' ml, D:' + result.implant2.d + '</div>';
-    }
-    html += '</div>';
 
-    html += '<div class="card">';
-    html += '<h3>Model implants needed to try on</h3>';
-    html += '<div class="muted mb-1">Physical trial/sizer implants for the in-clinic fitting preview, ranked closest to the target volume of ' + result.implant.v + ' ml.</div>';
-    result.sizerOptions.forEach(function (opt, i) {
-      var chosen = w.chosenSizer === i;
-      html += '<div class="sizer-row ' + (i === 0 ? 'best' : '') + '" data-sizer="' + i + '" style="cursor:pointer; ' + (chosen ? 'outline:2px solid var(--color-primary);' : '') + '">' +
-        '<div class="rank">#' + (i + 1) + '</div>' +
+    html += '<h4 class="mt-2">Model implants needed to try on</h4>';
+    html += '<div class="muted mb-1">Physical trial/sizer implants for the in-clinic fitting preview, ranked closest to ' + i.v + ' ml.</div>';
+    result.sizerOptions.forEach(function (opt, idx) {
+      var chosen = w.chosenSizer[side] === idx;
+      html += '<div class="sizer-row ' + (idx === 0 ? 'best' : '') + (chosen ? ' chosen' : '') + '" data-sizer="' + idx + '" data-side="' + side + '">' +
+        '<div class="rank">#' + (idx + 1) + '</div>' +
         '<div class="pieces">' + opt.pieces.map(function (p) { return '<span class="sizer-piece">' + esc(p.code) + ' &middot; ' + p.vol + 'ml</span>'; }).join('') + '</div>' +
         '<div><strong>' + opt.total + ' ml</strong> <span class="muted">(&Delta;' + opt.diff + ')</span></div>' +
         (chosen ? '<span class="pill success">Selected</span>' : '') +
         '</div>';
     });
-    html += '</div>';
+    html += '</section>';
+    return html;
+  }
 
-    html += '</div>'; // grid
+  function drawStepSelection() {
+    var w = state.wizard;
+    ensureSelection(w);
+    var full = FeatherCalc.computeConsultation(w.meas, w.selection);
+    w._lastResult = full;
+
+    var left = full.sides.left.result;
+    var right = full.sides.right.result;
+
+    var html = '<div class="card">' + widthControlHtml(w.meas) + '</div>';
+
+    if (full.symmetry) {
+      html += '<div class="symmetry-bar' + (full.symmetry.matched ? ' matched' : '') + '">' +
+        '<span class="symmetry-label">Planned result</span>' +
+        '<span>Left <strong>' + left.implant.v + ' ml</strong> / ' + left.implant.w + ' mm</span>' +
+        '<span>Right <strong>' + right.implant.v + ' ml</strong> / ' + right.implant.w + ' mm</span>' +
+        '<span class="muted">' + (full.symmetry.matched
+          ? 'Identical implants both sides'
+          : 'Difference: ' + full.symmetry.volumeDiff + ' ml, ' + full.symmetry.widthDiff + ' mm') + '</span>' +
+        '</div>';
+    }
+
+    html += warningsHtml(allWarnings(w, left && left.implant, right && right.implant));
+
+    html += '<div class="meas-columns">';
+    FeatherCalc.SIDES.forEach(function (side) {
+      html += sideSelectionHtml(w, side, full.sides[side].result);
+    });
+    html += '</div>';
 
     html += '<div class="card mt-2"><label for="finalNotes">Consultation notes</label><textarea id="finalNotes" rows="3">' + esc(w.notes) + '</textarea>' +
       '<div class="field mt-1"><label>Status</label><select id="statusSelect">' +
@@ -731,15 +1167,26 @@
     html += '<div class="mt-2" style="display:flex; gap:0.6em;"><button class="btn secondary" id="toSuggestionsStep">Back</button><button class="btn" id="saveConsult">Save consultation</button></div>';
 
     qs('#wizardBody').innerHTML = html;
-    qsa('[data-sizer]').forEach(function (row) {
-      row.addEventListener('click', function () { w.chosenSizer = Number(row.dataset.sizer); drawStepSelection(); });
+    qsa('[data-sizer]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        w.notes = qs('#finalNotes').value;
+        w.chosenSizer[el.dataset.side] = Number(el.dataset.sizer);
+        drawStepSelection();
+      });
     });
-    wireWidthControl(w.meas, function () { drawStepSelection(); });
+    wireWidthControl(w.meas, function () { w.selection = { left: null, right: null }; drawStepSelection(); });
     qs('#toSuggestionsStep').addEventListener('click', function () { w.step = 3; drawWizard(); });
     qs('#saveConsult').addEventListener('click', function () {
       w.notes = qs('#finalNotes').value;
       w.status = qs('#statusSelect').value;
-      var body = { patientId: w.patient.id, meas: w.meas, family: w.family, chosenSizer: w.chosenSizer, chosenImplant: w.chosenImplant, notes: w.notes, status: w.status };
+      var body = {
+        patientId: w.patient.id,
+        meas: w.meas,
+        selection: w.selection,
+        chosenSizer: w.chosenSizer,
+        notes: w.notes,
+        status: w.status
+      };
       var req = w.consultationId
         ? api('/api/consultations/' + w.consultationId, { method: 'PUT', body: body })
         : api('/api/consultations', { method: 'POST', body: body });
