@@ -65,8 +65,8 @@
       hint: 'Existing inter-mammary distance (cm).',
       desc: 'The starting inter-mammary distance -- the gap between the breasts at the sternum before surgery -- used here as a discrete preset rather than a free measurement.',
       howTo: 'Measure the horizontal distance between the medial borders of the two breast mounds at the sternum, patient upright, and round to the nearest preset (3 / 4 / 5 cm).',
-      range: 'Most patients land on 3-5 cm; narrower values suit patients who want closer cleavage, wider values suit a broader chest anatomy.',
-      options: ['3', '4', '5']
+      range: 'Recorded as a 4-8 cm preset. Together with chest width it sets the breast base available per side, which caps how wide an implant can be.',
+      options: FeatherCalc.CLEAVAGE_OPTIONS.map(String)
     },
     stMed: {
       label: 'Soft Tissue Medial Pole', img: '/img/help-st-medial.svg', side: true,
@@ -130,10 +130,10 @@
     },
     desiredImd: {
       label: 'Desired Intermammary Distance (IMD)',
-      hint: 'Desired postoperative gap between the medial edges of the breasts (cm). Compared against pre-op Parenchyma to flag symmastia risk if the pockets would be left with too little medial support.',
+      hint: 'Desired postoperative gap between the medial edges of the breasts (cm). Also nudges the auto implant width, and is compared against pre-op Parenchyma to flag symmastia risk.',
       desc: 'The target postoperative gap between the medial edges of the breasts -- the surgical-planning term for "distance between breasts" once healed.',
       howTo: 'Set jointly with the patient (this field is a planning target, not measured on the pre-op chest); it is compared against the pre-op Parenchyma reading to flag symmastia risk.',
-      range: 'Most plans target 1.5-4 cm; below ~1.5 cm the pockets may be left with too little medial support, risking symmastia.'
+      range: 'The slider spans 2.5-4.5 cm in 0.2 cm steps. A narrower target frees medial room and widens the auto implant width by up to 5 mm; a wider target narrows it by the same amount. The influence is one-way -- moving the width sliders never changes this value.'
     },
     shell: {
       label: 'Shell Surface', img: '/img/help-shell.svg',
@@ -733,7 +733,7 @@
         }
       });
     });
-    wireImdSlider(m, function () {});
+    wireImdSlider(m, function () { w.notes = qs('#notesField').value; drawStepMeasurements(); });
     wireWidthControl(m, function () { drawStepMeasurements(); });
 
     qs('#toPatientStep').addEventListener('click', function () { w.step = 1; drawWizard(); });
@@ -865,21 +865,38 @@
   function imdSliderHtml(m) {
     var f = HELP_FIELDS.desiredImd;
     var v = Number(m.desiredImd);
-    if (isNaN(v)) v = 3;
+    if (isNaN(v)) v = FeatherCalc.IMD_REFERENCE_CM;
     return '<div class="field"><label>' + esc(f.label) + helpIcon('desiredImd') + '</label>' +
       '<div style="display:flex; align-items:center; gap:0.8em;">' +
-      '<input type="range" id="imdSlider" min="0.5" max="6" step="0.5" value="' + v + '" />' +
-      '<strong style="min-width:3.5em; text-align:right;">' + v.toFixed(1) + ' cm</strong>' +
+      '<input type="range" id="imdSlider" min="' + FeatherCalc.IMD_MIN_CM + '" max="' + FeatherCalc.IMD_MAX_CM +
+      '" step="' + FeatherCalc.IMD_STEP_CM + '" value="' + v + '" />' +
+      '<strong id="imdValue" style="min-width:3.5em; text-align:right;">' + v.toFixed(1) + ' cm</strong>' +
       '</div><div class="muted" style="font-size:0.82em; margin-top:0.3em;">' + esc(f.hint) + '</div></div>';
   }
 
-  function wireImdSlider(m, onChange) {
+  // The readout and the auto width readouts are refreshed on every 'input' tick so
+  // the numbers track the thumb, but the panel is only redrawn once the slider is
+  // released ('change') -- redrawing mid-drag would replace the element under the
+  // pointer and the thumb would lose mouse capture.
+  function wireImdSlider(m, onCommit) {
     var slider = qs('#imdSlider');
     if (!slider) return;
     slider.addEventListener('input', function () {
       m.desiredImd = slider.value;
-      onChange();
+      var out = qs('#imdValue');
+      if (out) out.textContent = Number(slider.value).toFixed(1) + ' cm';
+      // Desired IMD feeds the auto width, so show that moving too.
+      qsa('.width-row').forEach(function (row) {
+        var side = row.dataset.side;
+        if (FeatherCalc.isManualWidth(m, side)) return;
+        var w = FeatherCalc.resolveWidth(m, side);
+        var slide = row.querySelector('.width-slider');
+        var label = row.querySelector('.width-row-value');
+        if (slide) slide.value = w;
+        if (label) label.textContent = w + ' mm';
+      });
     });
+    slider.addEventListener('change', function () { onCommit(); });
   }
 
   // ---------------------------- Manual implant width override ----------------------------
